@@ -327,6 +327,24 @@ async function checkSession() {
                     localStorage.setItem('admin_role', adminData.role || 'admin');
                     localStorage.setItem('admin_auth_method', 'google');
 
+                    // NEW: Retrieve the access_key from the API using the current JWT
+                    try {
+                        const { data: sessionData } = await supabaseClient.auth.getSession();
+                        if (sessionData && sessionData.session) {
+                            const adminSession = await callAdminApi('get_admin_session', {
+                                auth_token: sessionData.session.access_token
+                            });
+                            if (adminSession && adminSession.access_key) {
+                                localStorage.setItem('admin_key', adminSession.access_key);
+                                console.log('Admin key retrieved and stored for Google session.');
+                            }
+                        }
+                    } catch (sessionErr) {
+                        console.error('Failed to retrieve admin key:', sessionErr);
+                        // We still proceed if the key fails to retrieve, 
+                        // but subsequent RPCs might fail until they re-login or it works.
+                    }
+
                     showSuccess('Welcome!');
                     await playLoginAnimation('check.json', false, () => {
                         setTimeout(() => showDashboard(), 800);

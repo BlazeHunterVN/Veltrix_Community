@@ -42,7 +42,8 @@ const VALID_ACTIONS = [
     'manage_admin_access',
     'fetch_banners',
     'fetch_admin_list',
-    'fetch_home_settings'
+    'fetch_home_settings',
+    'get_admin_session'
 ];
 
 export default async function handler(req, res) {
@@ -118,6 +119,30 @@ export default async function handler(req, res) {
 
             case 'fetch_home_settings':
                 result = await supabase.from('home_settings').select('*').eq('id', 1).single();
+                break;
+
+            case 'get_admin_session':
+                const token = params.auth_token;
+                if (!token) {
+                    return res.status(400).json({ error: 'Auth token required' });
+                }
+                // Verify the token with Supabase
+                const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+                if (authError || !user) {
+                    return res.status(401).json({ error: 'Invalid or expired session' });
+                }
+                // Fetch the access key for this email
+                const { data: admin, error: dbError } = await supabase
+                    .from('admin_access')
+                    .select('email, role, access_key')
+                    .eq('email', user.email)
+                    .single();
+
+                if (dbError || !admin) {
+                    return res.status(403).json({ error: 'Email not authorized' });
+                }
+
+                result = { data: admin };
                 break;
 
             default:
